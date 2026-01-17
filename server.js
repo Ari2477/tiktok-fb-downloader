@@ -1,6 +1,5 @@
 const express = require("express");
 const axios = require("axios");
-const path = require("path");
 const cors = require("cors");
 
 const app = express();
@@ -26,48 +25,36 @@ async function tiktokDownload(url) {
       music: res.data.data.music
     };
   } catch (err) {
-    console.error("TikTok download error:", err.message);
+    console.error("TikTok error:", err.message);
     return null;
   }
 }
 
 /* ===============================
-   Facebook Downloader (ioark FIXED)
+   Facebook Downloader (FIXED)
+   using public-apis-ph-server
 ================================= */
 async function facebookDownload(url) {
   try {
-    const apiUrl = `https://ioark-apiv1.onrender.com/downloader/facebookv2?url=${encodeURIComponent(
+    const apiUrl = `https://public-apis-ph-server.onrender.com/api/fbdl?url=${encodeURIComponent(
       url
     )}`;
     const res = await axios.get(apiUrl);
 
     const links = [];
 
-    // FORMAT 1: result array
-    if (res.data?.result && Array.isArray(res.data.result)) {
-      res.data.result.forEach(item => {
-        if (item.link) {
-          links.push({
-            url: item.link,
-            quality: item.quality || "Video"
-          });
-        }
-      });
+    // Expected format
+    // data.data.hd | data.data.sd
+    if (res.data?.data?.hd) {
+      links.push({ url: res.data.data.hd, quality: "HD" });
     }
-
-    // FORMAT 2: data.hd / data.sd
-    if (res.data?.data) {
-      if (res.data.data.hd) {
-        links.push({ url: res.data.data.hd, quality: "HD" });
-      }
-      if (res.data.data.sd) {
-        links.push({ url: res.data.data.sd, quality: "SD" });
-      }
+    if (res.data?.data?.sd) {
+      links.push({ url: res.data.data.sd, quality: "SD" });
     }
 
     return { links };
   } catch (err) {
-    console.error("Facebook download error:", err.message);
+    console.error("Facebook error:", err.message);
     return { links: [] };
   }
 }
@@ -78,7 +65,6 @@ async function facebookDownload(url) {
 app.post("/api/download", async (req, res) => {
   try {
     const { url, platform } = req.body;
-
     if (!url || !platform) {
       return res.json({ success: false, error: "Missing data" });
     }
@@ -101,7 +87,7 @@ app.post("/api/download", async (req, res) => {
         return res.json({
           success: false,
           error:
-            "No download links found. Make sure the video is public or try another video URL."
+            "No download links found. Video may be private, restricted, or unsupported."
         });
       }
     }
@@ -111,15 +97,12 @@ app.post("/api/download", async (req, res) => {
     }
 
     res.json({ success: true, data });
-  } catch (e) {
-    console.error("API error:", e.message);
+  } catch (err) {
+    console.error("API error:", err.message);
     res.json({ success: false, error: "Download failed" });
   }
 });
 
-/* ===============================
-   Start Server
-================================= */
 app.listen(PORT, () => {
   console.log(`✅ Server running at http://localhost:${PORT}`);
 });
