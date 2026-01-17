@@ -1,7 +1,7 @@
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
-const cheerio = require("cheerio");
+const puppeteer = require("puppeteer");
 
 const app = express();
 app.use(cors());
@@ -12,7 +12,6 @@ const PORT = 3000;
 
 /* ===============================
    TikTok Downloader (No Watermark)
-   ❌ DO NOT TOUCH – WORKING
 ================================= */
 async function tiktokDownload(url) {
   try {
@@ -33,44 +32,35 @@ async function tiktokDownload(url) {
 }
 
 /* ===============================
-   Facebook Downloader (REAL FIX)
-   fbdown.net HTML SCRAPER
+   Facebook Downloader (Puppeteer)
 ================================= */
 async function facebookDownload(url) {
   try {
-    const response = await axios.post(
-      "https://www.fbdown.net/download.php",
-      new URLSearchParams({ URLz: url }).toString(),
-      {
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-          "Referer": "https://www.fbdown.net/"
-        },
-        timeout: 15000
-      }
+    const browser = await puppeteer.launch({ headless: true });
+    const page = await browser.newPage();
+
+    // Set user agent para parang real browser
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36"
     );
 
-    const $ = cheerio.load(response.data);
-    const links = [];
+    await page.goto(url, { waitUntil: "networkidle2" });
 
-    $("a").each((_, el) => {
-      const href = $(el).attr("href");
-      const text = $(el).text().toLowerCase();
-
-      if (href && href.startsWith("https") && href.includes("video")) {
-        if (text.includes("hd")) {
-          links.push({ url: href, quality: "HD" });
-        } else if (text.includes("sd")) {
-          links.push({ url: href, quality: "SD" });
-        }
-      }
+    // Attempt to get video URL
+    const videoUrl = await page.evaluate(() => {
+      const video = document.querySelector("video");
+      return video ? video.src : null;
     });
 
-    return { links };
+    await browser.close();
+
+    if (!videoUrl) {
+      return { links: [] };
+    }
+
+    return { links: [{ url: videoUrl, quality: "HD" }] };
   } catch (err) {
-    console.error("Facebook scrape error:", err.message);
+    console.error("Facebook scraping error:", err.message);
     return { links: [] };
   }
 }
@@ -85,30 +75,22 @@ app.post("/api/download", async (req, res) => {
       return res.json({ success: false, error: "Missing data" });
     }
 
-    let data;
+    let data = null;
 
     if (platform === "tiktok") {
       data = await tiktokDownload(url);
-      if (!data) {
-        return res.json({
-          success: false,
-          error: "TikTok download failed"
-        });
-      }
-    }
-
-    else if (platform === "facebook") {
+      if (!data)
+        return res.json({ success: false, error: "TikTok download failed" });
+    } else if (platform === "facebook") {
       data = await facebookDownload(url);
       if (!data.links || data.links.length === 0) {
         return res.json({
           success: false,
           error:
-            "No download links found. Video must be PUBLIC."
+            "No download links found. Video might be private or restricted."
         });
       }
-    }
-
-    else {
+    } else {
       return res.json({ success: false, error: "Invalid platform" });
     }
 
