@@ -32,94 +32,226 @@ async function tiktokDownload(url) {
 }
 
 /* ===============================
+   Extract Video ID from Facebook URLs
+================================= */
+function extractFacebookVideoId(url) {
+  // For share links like https://www.facebook.com/share/r/1BhaqeryTv/
+  if (url.includes('/share/r/')) {
+    const match = url.match(/\/share\/r\/([^\/?]+)/);
+    return match ? match[1] : null;
+  }
+  
+  // For watch links: https://www.facebook.com/watch/?v=123456789
+  const watchMatch = url.match(/[?&]v=(\d+)/);
+  if (watchMatch) return watchMatch[1];
+  
+  // For video links: https://www.facebook.com/username/videos/123456789/
+  const videoMatch = url.match(/\/videos\/(\d+)/);
+  if (videoMatch) return videoMatch[1];
+  
+  // For reel links: https://www.facebook.com/reel/123456789
+  const reelMatch = url.match(/\/reel\/(\d+)/);
+  if (reelMatch) return reelMatch[1];
+  
+  // For fb.watch links: https://fb.watch/abc123def/
+  const fbWatchMatch = url.match(/fb\.watch\/([^\/?]+)/);
+  if (fbWatchMatch) return fbWatchMatch[1];
+  
+  return null;
+}
+
+/* ===============================
+   Convert Share Link to Watch Link
+================================= */
+async function convertShareLinkToWatchLink(shareUrl) {
+  try {
+    console.log("Converting share link:", shareUrl);
+    
+    // Follow the redirect chain
+    const response = await axios.get(shareUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'text/html,application/xhtml+xml',
+        'Accept-Language': 'en-US,en;q=0.9'
+      },
+      maxRedirects: 5,
+      timeout: 15000,
+      validateStatus: null // Accept all status codes
+    });
+    
+    // Get final URL after all redirects
+    let finalUrl = response.request?.res?.responseUrl || shareUrl;
+    console.log("Final URL after redirects:", finalUrl);
+    
+    // Extract video ID from final URL
+    const videoId = extractFacebookVideoId(finalUrl);
+    
+    if (videoId) {
+      // Convert to standard watch URL
+      const watchUrl = `https://www.facebook.com/watch/?v=${videoId}`;
+      console.log("Converted to watch URL:", watchUrl);
+      return watchUrl;
+    }
+    
+    return finalUrl;
+  } catch (err) {
+    console.error("Error converting share link:", err.message);
+    return shareUrl;
+  }
+}
+
+/* ===============================
    IMPROVED Facebook Downloader
-   Multiple API Fallbacks
+   Supports ALL URL formats including share links
 ================================= */
 async function facebookDownload(url) {
-  // List of working Facebook download APIs (with fallbacks)
+  console.log("Processing Facebook URL:", url);
+  
+  // Step 1: Convert share links to watch links
+  if (url.includes('/share/r/') || url.includes('/sharer.php')) {
+    console.log("Detected share link, converting...");
+    url = await convertShareLinkToWatchLink(url);
+    console.log("Using converted URL:", url);
+  }
+  
+  // Step 2: Try multiple download APIs
   const apiEndpoints = [
+    // API 1: ytdown - supports most formats
     {
-      name: "API 1 - fbdown.net",
-      url: `https://fbdown.net/api/api-v2?url=${encodeURIComponent(url)}`,
-      parser: (data) => {
-        const links = [];
-        if (data?.hd) links.push({ url: data.hd, quality: "HD" });
-        if (data?.sd) links.push({ url: data.sd, quality: "SD" });
-        return links;
-      }
-    },
-    {
-      name: "API 2 - ssyoutube",
-      url: `https://ssyoutube.com/api/convert?url=${encodeURIComponent(url)}`,
+      name: "ytdown.net",
+      url: `https://ytdown.net/api/convert`,
+      method: "POST",
+      data: `url=${encodeURIComponent(url)}`,
       parser: (data) => {
         const links = [];
         if (data?.url) {
-          links.push({ url: data.url, quality: data.quality || "Best" });
+          links.push({ url: data.url, quality: data.quality || "HD" });
+        }
+        if (data?.url2) {
+          links.push({ url: data.url2, quality: "SD" });
         }
         return links;
       }
     },
+    
+    // API 2: fdown - good for Facebook
     {
-      name: "API 3 - savetik.co",
-      url: `https://savetik.co/api/ajaxSearch?url=${encodeURIComponent(url)}`,
-      parser: (data) => {
+      name: "fdown.net",
+      url: `https://fdown.net/`,
+      method: "POST",
+      data: `URL=${encodeURIComponent(url)}`,
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Origin': 'https://fdown.net',
+        'Referer': 'https://fdown.net/'
+      },
+      parser: (html) => {
         const links = [];
-        if (data?.data?.hd) links.push({ url: data.data.hd, quality: "HD" });
-        if (data?.data?.sd) links.push({ url: data.data.sd, quality: "SD" });
+        // Parse HD link
+        const hdMatch = html.match(/href="([^"]+)"[^>]*>Download \(HD\)/);
+        if (hdMatch) links.push({ url: hdMatch[1], quality: "HD" });
+        // Parse SD link
+        const sdMatch = html.match(/href="([^"]+)"[^>]*>Download \(SD\)/);
+        if (sdMatch) links.push({ url: sdMatch[1], quality: "SD" });
         return links;
       }
     },
+    
+    // API 3: snapfb - specialized for Facebook
     {
-      name: "API 4 - savevideo",
-      url: `https://savevideo.co/api/ajaxSearch?url=${encodeURIComponent(url)}`,
+      name: "snapfb.com",
+      url: `https://snapfb.com/api/v1/fetch`,
+      method: "POST",
+      data: { url: url },
       parser: (data) => {
         const links = [];
-        if (data?.data?.hd) links.push({ url: data.data.hd, quality: "HD" });
-        if (data?.data?.sd) links.push({ url: data.data.sd, quality: "SD" });
+        if (data?.video) {
+          links.push({ url: data.video, quality: "HD" });
+        }
+        return links;
+      }
+    },
+    
+    // API 4: y2mate - works with Facebook
+    {
+      name: "y2mate.com",
+      url: `https://www.y2mate.com/mates/analyze/ajax`,
+      method: "POST",
+      data: `url=${encodeURIComponent(url)}&q_auto=1&ajax=1`,
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      parser: (data) => {
+        const links = [];
+        if (data?.result) {
+          const hdMatch = data.result.match(/href="([^"]+)"[^>]*>HD/);
+          const sdMatch = data.result.match(/href="([^"]+)"[^>]*>SD/);
+          if (hdMatch) links.push({ url: hdMatch[1], quality: "HD" });
+          if (sdMatch) links.push({ url: sdMatch[1], quality: "SD" });
+        }
         return links;
       }
     }
   ];
-
-  // Try each API endpoint with timeout
+  
+  // Try each API endpoint
   for (const endpoint of apiEndpoints) {
     try {
       console.log(`Trying ${endpoint.name}...`);
       
-      const response = await axios.get(endpoint.url, {
-        timeout: 8000,
+      let response;
+      const config = {
+        timeout: 10000,
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'application/json',
-          'Referer': 'https://www.facebook.com/'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          ...endpoint.headers
         }
-      });
-
+      };
+      
+      if (endpoint.method === "POST") {
+        response = await axios.post(endpoint.url, endpoint.data, config);
+      } else {
+        response = await axios.get(endpoint.url, config);
+      }
+      
       if (response.data) {
         const links = endpoint.parser(response.data);
         if (links.length > 0) {
           console.log(`✓ Success with ${endpoint.name}, found ${links.length} links`);
-          return { links, api: endpoint.name };
+          return { 
+            links, 
+            api: endpoint.name,
+            originalUrl: url 
+          };
         }
       }
     } catch (err) {
-      console.log(`✗ ${endpoint.name} failed: ${err.message}`);
+      console.log(`✗ ${endpoint.name} failed:`, err.message);
       continue; // Try next API
     }
   }
-
-  // If all APIs fail, try direct HTML parsing as last resort
+  
+  // Last resort: Direct HTML parsing
   try {
-    console.log("Trying direct HTML parsing...");
+    console.log("Trying direct HTML parsing as last resort...");
     const directLinks = await facebookDirectParse(url);
     if (directLinks.length > 0) {
-      return { links: directLinks, api: "direct-html" };
+      return { 
+        links: directLinks, 
+        api: "direct-html",
+        originalUrl: url 
+      };
     }
   } catch (err) {
     console.log("Direct parsing failed:", err.message);
   }
-
-  return { links: [], api: "all-failed" };
+  
+  return { 
+    links: [], 
+    api: "all-failed",
+    originalUrl: url 
+  };
 }
 
 /* ===============================
@@ -131,40 +263,67 @@ async function facebookDirectParse(url) {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9'
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Cookie': 'locale=en_US' // Add locale cookie for better parsing
       },
-      timeout: 10000
+      timeout: 15000
     });
 
     const html = response.data;
     const links = [];
 
-    // Extract HD video
-    const hdRegex = /"hd_src":"([^"]+)"/g;
-    const hdMatch = hdRegex.exec(html);
-    if (hdMatch && hdMatch[1]) {
-      const hdUrl = hdMatch[1].replace(/\\\//g, '/');
-      links.push({ url: hdUrl, quality: "HD" });
-    }
+    // Extract video URLs using multiple patterns
+    const patterns = [
+      /"hd_src":"([^"]+)"/g,
+      /"sd_src":"([^"]+)"/g,
+      /"playable_url":"([^"]+)"/g,
+      /"playable_url_quality_hd":"([^"]+)"/g,
+      /"source":"([^"]+\.mp4[^"]*)"/g,
+      /<meta\s+property="og:video"\s+content="([^"]+)"/gi,
+      /<meta\s+property="og:video:url"\s+content="([^"]+)"/gi,
+      /video_src["']?\s*:\s*["']([^"']+)["']/g,
+      /(https:\/\/[^"]+\.mp4[^"]*)/g
+    ];
 
-    // Extract SD video
-    const sdRegex = /"sd_src":"([^"]+)"/g;
-    const sdMatch = sdRegex.exec(html);
-    if (sdMatch && sdMatch[1]) {
-      const sdUrl = sdMatch[1].replace(/\\\//g, '/');
-      links.push({ url: sdUrl, quality: "SD" });
-    }
-
-    // Extract og:video meta
-    const metaRegex = /<meta\s+property="og:video"\s+content="([^"]+)"/gi;
-    let metaMatch;
-    while ((metaMatch = metaRegex.exec(html)) !== null) {
-      if (metaMatch[1] && metaMatch[1].includes('.mp4')) {
-        links.push({ url: metaMatch[1], quality: "MP4" });
+    for (const pattern of patterns) {
+      const matches = html.match(pattern);
+      if (matches) {
+        for (const match of matches) {
+          // Extract URL from match
+          let videoUrl = match;
+          if (pattern.toString().includes('"')) {
+            const urlMatch = match.match(/"([^"]+)"/);
+            if (urlMatch) videoUrl = urlMatch[1];
+          }
+          
+          // Clean up the URL
+          videoUrl = videoUrl.replace(/\\\//g, '/')
+                             .replace(/\\u0025/g, '%')
+                             .replace(/\\u0026/g, '&');
+          
+          // Only add if it looks like a video URL
+          if (videoUrl.includes('.mp4') || videoUrl.includes('video')) {
+            links.push({ 
+              url: videoUrl, 
+              quality: videoUrl.includes('hd') ? "HD" : "SD" 
+            });
+          }
+        }
       }
     }
 
-    return links;
+    // Remove duplicates
+    const uniqueLinks = [];
+    const seenUrls = new Set();
+    
+    for (const link of links) {
+      if (!seenUrls.has(link.url)) {
+        seenUrls.add(link.url);
+        uniqueLinks.push(link);
+      }
+    }
+
+    return uniqueLinks.slice(0, 5); // Return max 5 links
   } catch (err) {
     console.error("Direct parse error:", err.message);
     return [];
@@ -172,15 +331,27 @@ async function facebookDirectParse(url) {
 }
 
 /* ===============================
-   URL Validator
+   URL Validator - Now supports ALL formats
 ================================= */
 function validateFacebookURL(url) {
   const patterns = [
+    // Standard video URLs
     /(?:https?:\/\/)?(?:www\.|m\.)?facebook\.com\/[^\/]+\/videos\/\d+/i,
     /(?:https?:\/\/)?(?:www\.|m\.)?facebook\.com\/watch\/?\?v=\d+/i,
     /(?:https?:\/\/)?(?:www\.|m\.)?facebook\.com\/reel\/\d+/i,
     /(?:https?:\/\/)?fb\.watch\/[a-zA-Z0-9_-]+/i,
-    /(?:https?:\/\/)?(?:www\.|m\.)?facebook\.com\/[^\/]+\/posts\/\d+/i
+    /(?:https?:\/\/)?(?:www\.|m\.)?facebook\.com\/[^\/]+\/posts\/\d+/i,
+    
+    // Share links - NOW SUPPORTED!
+    /(?:https?:\/\/)?(?:www\.|m\.)?facebook\.com\/share\/r\/[a-zA-Z0-9]+/i,
+    /(?:https?:\/\/)?(?:www\.|m\.)?facebook\.com\/sharer\.php/i,
+    
+    // New formats
+    /(?:https?:\/\/)?(?:www\.|m\.)?facebook\.com\/share\/v\/[a-zA-Z0-9]+/i,
+    /(?:https?:\/\/)?(?:www\.|m\.)?facebook\.com\/share\/[^\/]+\/[^\/]+/i,
+    
+    // General Facebook URLs (catch-all for testing)
+    /(?:https?:\/\/)?(?:www\.|m\.)?facebook\.com\/.+/i
   ];
   
   return patterns.some(pattern => pattern.test(url));
@@ -209,25 +380,30 @@ app.post("/api/download", async (req, res) => {
       }
     }
     else if (platform === "facebook") {
-      // Validate Facebook URL first
+      // Validate Facebook URL (now supports all formats)
       if (!validateFacebookURL(url)) {
         return res.json({
           success: false,
-          error: "Invalid Facebook URL format. Please use a direct video link."
+          error: "Invalid Facebook URL. Please use a valid Facebook video link."
         });
       }
 
+      console.log(`Processing Facebook download for: ${url}`);
       data = await facebookDownload(url);
       
       if (!data.links || data.links.length === 0) {
         return res.json({
           success: false,
-          error: "No download links found. Possible reasons:\n1. Video is private/restricted\n2. URL is incorrect\n3. Video format not supported\n\nTry using a different video or check if it's public."
+          error: `No download links found.\nURL: ${data.originalUrl || url}\n\nPossible reasons:\n1. Video is private/restricted\n2. URL format not supported\n3. Video requires login\n4. Try using the direct video link instead of share link`
         });
       }
       
-      // Add additional info
-      data.info = `Downloaded via ${data.api}`;
+      // Add debug info
+      data.debug = {
+        processedUrl: data.originalUrl,
+        apiUsed: data.api,
+        timestamp: new Date().toISOString()
+      };
     }
     else {
       return res.json({ success: false, error: "Invalid platform selected" });
@@ -244,20 +420,64 @@ app.post("/api/download", async (req, res) => {
 });
 
 /* ===============================
+   Test Endpoint for Debugging
+================================= */
+app.post("/api/test-facebook", async (req, res) => {
+  try {
+    const { url } = req.body;
+    
+    if (!url) {
+      return res.json({ success: false, error: "No URL provided" });
+    }
+    
+    console.log("=== Facebook URL Test ===");
+    console.log("Input URL:", url);
+    console.log("Is valid?", validateFacebookURL(url));
+    
+    const videoId = extractFacebookVideoId(url);
+    console.log("Extracted Video ID:", videoId);
+    
+    // Try conversion for share links
+    if (url.includes('/share/r/')) {
+      const converted = await convertShareLinkToWatchLink(url);
+      console.log("Converted URL:", converted);
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        originalUrl: url,
+        isValid: validateFacebookURL(url),
+        videoId: videoId,
+        isShareLink: url.includes('/share/r/'),
+        message: "Check server console for detailed logs"
+      }
+    });
+    
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
+/* ===============================
    Health Check Endpoint
 ================================= */
 app.get("/api/health", (req, res) => {
   res.json({ 
     status: "healthy", 
     timestamp: new Date().toISOString(),
-    services: {
-      tiktok: "operational",
-      facebook: "operational"
-    }
+    facebookFormats: [
+      "Standard: facebook.com/.../videos/...",
+      "Watch: facebook.com/watch/?v=...", 
+      "Reel: facebook.com/reel/...",
+      "Share: facebook.com/share/r/...",
+      "fb.watch: fb.watch/..."
+    ]
   });
 });
 
 app.listen(PORT, () => {
   console.log(`✅ Server running at http://localhost:${PORT}`);
   console.log(`📱 Health check: http://localhost:${PORT}/api/health`);
+  console.log(`🔍 Test Facebook URLs: http://localhost:${PORT}/api/test-facebook`);
 });
