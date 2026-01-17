@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Video Downloader</title>
   <style>
-    /* ===== CSS START ===== */
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: Arial, sans-serif;
@@ -26,11 +25,7 @@
       text-align: center;
       box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
-    h1 {
-      margin-bottom: 20px;
-      font-size: 1.8em;
-      color: #22c55e;
-    }
+    h1 { margin-bottom: 20px; font-size: 1.8em; color: #22c55e; }
     select, input, button {
       width: 100%;
       margin-top: 10px;
@@ -39,11 +34,7 @@
       border: none;
       font-size: 1em;
     }
-    select, input {
-      background: #0f172a;
-      color: white;
-      border: 1px solid #334155;
-    }
+    select, input { background: #0f172a; color: white; border: 1px solid #334155; }
     button {
       background: #22c55e;
       font-weight: bold;
@@ -51,30 +42,11 @@
       cursor: pointer;
       transition: opacity 0.2s;
     }
-    button:hover {
-      opacity: 0.9;
-    }
-    #result {
-      margin-top: 20px;
-      word-break: break-word;
-      text-align: left;
-    }
-    a {
-      display: block;
-      margin-top: 10px;
-      color: #38bdf8;
-      text-decoration: none;
-      font-weight: bold;
-    }
+    button:hover { opacity: 0.9; }
+    #result { margin-top: 20px; word-break: break-word; text-align: left; }
+    a { display: block; margin-top: 10px; color: #38bdf8; text-decoration: none; font-weight: bold; }
     a:hover { text-decoration: underline; }
-    pre {
-      background: #334155;
-      padding: 10px;
-      border-radius: 6px;
-      overflow-x: auto;
-      font-size: 0.9em;
-    }
-    /* ===== CSS END ===== */
+    video { width: 100%; margin-top: 10px; border-radius: 8px; background: black; }
   </style>
 </head>
 <body>
@@ -93,7 +65,6 @@
   </div>
 
   <script>
-    // ===== JS START =====
     async function downloadVideo() {
       const url = document.getElementById("url").value.trim();
       const platform = document.getElementById("platform").value;
@@ -116,27 +87,31 @@
         const data = await res.json();
 
         if (!data.success) {
-          result.innerHTML = "❌ Download failed or invalid URL";
+          result.innerHTML = data.error || "❌ Download failed";
           return;
         }
 
-        // TikTok
+        // TikTok - show video + music
         if (platform === "tiktok") {
           result.innerHTML = `
             <p><strong>${data.data.title}</strong></p>
+            <video controls src="${data.data.video}"></video>
             <a href="${data.data.video}" target="_blank">⬇ Download Video (No Watermark)</a>
             <a href="${data.data.music}" target="_blank">🎵 Download Music</a>
           `;
         } 
-        // Facebook
+        // Facebook - show video player if first link available
         else if (platform === "facebook") {
           let html = "<p><strong>Facebook Video Links</strong></p>";
           if (data.data && data.data.links && data.data.links.length > 0) {
+            // Show first video in <video> player
+            html += `<video controls src="${data.data.links[0].url}"></video>`;
+            // List all download links
             data.data.links.forEach(link => {
               html += `<a href="${link.url}" target="_blank">${link.quality || "Video"}</a>`;
             });
           } else {
-            html += "<p>No download links found.</p>";
+            html += "<p>No download links found (public videos only)</p>";
           }
           result.innerHTML = html;
         }
@@ -146,7 +121,6 @@
         result.innerHTML = "❌ Error connecting to server";
       }
     }
-    // ===== JS END =====
   </script>
 </body>
 </html>
