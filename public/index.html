@@ -100,18 +100,18 @@
             <a href="${data.data.music}" target="_blank">🎵 Download Music</a>
           `;
         } 
-        // Facebook - show video player if first link available
+        // Facebook - show video player + all download links
         else if (platform === "facebook") {
           let html = "<p><strong>Facebook Video Links</strong></p>";
           if (data.data && data.data.links && data.data.links.length > 0) {
-            // Show first video in <video> player
+            // First video in player
             html += `<video controls src="${data.data.links[0].url}"></video>`;
-            // List all download links
+            // All download links
             data.data.links.forEach(link => {
               html += `<a href="${link.url}" target="_blank">${link.quality || "Video"}</a>`;
             });
           } else {
-            html += "<p>No download links found (public videos only)</p>";
+            html += "<p>No download links found. Make sure the video is public or try another URL.</p>";
           }
           result.innerHTML = html;
         }
