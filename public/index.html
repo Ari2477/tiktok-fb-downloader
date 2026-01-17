@@ -3,124 +3,477 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Video Downloader</title>
+  <title>Video Downloader - TikTok & Facebook</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * { 
+      box-sizing: border-box; 
+      margin: 0; 
+      padding: 0; 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    
     body {
-      font-family: Arial, sans-serif;
-      background: #0f172a;
-      color: white;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #f1f5f9;
+      min-height: 100vh;
+      padding: 20px;
       display: flex;
       justify-content: center;
       align-items: center;
-      min-height: 100vh;
-      padding: 10px;
     }
+    
     .container {
-      background: #1e293b;
-      padding: 25px;
+      background: rgba(30, 41, 59, 0.95);
+      padding: 30px;
       width: 100%;
-      max-width: 400px;
-      border-radius: 12px;
+      max-width: 500px;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      border: 1px solid #334155;
+    }
+    
+    .header {
       text-align: center;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      margin-bottom: 30px;
     }
-    h1 { margin-bottom: 20px; font-size: 1.8em; color: #22c55e; }
-    select, input, button {
-      width: 100%;
-      margin-top: 10px;
+    
+    h1 {
+      font-size: 2.2em;
+      color: #22c55e;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    
+    .subtitle {
+      color: #94a3b8;
+      font-size: 0.95em;
+    }
+    
+    .platform-selector {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      background: #0f172a;
+      padding: 5px;
+      border-radius: 10px;
+    }
+    
+    .platform-btn {
+      flex: 1;
       padding: 12px;
-      border-radius: 8px;
       border: none;
-      font-size: 1em;
-    }
-    select, input { background: #0f172a; color: white; border: 1px solid #334155; }
-    button {
-      background: #22c55e;
-      font-weight: bold;
-      color: black;
+      border-radius: 8px;
+      background: transparent;
+      color: #94a3b8;
+      font-weight: 600;
       cursor: pointer;
-      transition: opacity 0.2s;
+      transition: all 0.3s ease;
     }
-    button:hover { opacity: 0.9; }
-    #result { margin-top: 20px; word-break: break-word; text-align: left; }
-    a { display: block; margin-top: 10px; color: #38bdf8; text-decoration: none; font-weight: bold; }
-    a:hover { text-decoration: underline; }
-    video { width: 100%; margin-top: 10px; border-radius: 8px; background: black; }
+    
+    .platform-btn.active {
+      background: #22c55e;
+      color: #0f172a;
+    }
+    
+    .input-group {
+      margin-bottom: 20px;
+    }
+    
+    input[type="text"] {
+      width: 100%;
+      padding: 15px;
+      border: 2px solid #334155;
+      border-radius: 10px;
+      background: #0f172a;
+      color: white;
+      font-size: 1em;
+      transition: border-color 0.3s;
+    }
+    
+    input[type="text"]:focus {
+      outline: none;
+      border-color: #22c55e;
+    }
+    
+    input[type="text"]::placeholder {
+      color: #64748b;
+    }
+    
+    .download-btn {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 1.1em;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      margin-bottom: 25px;
+    }
+    
+    .download-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(34, 197, 94, 0.3);
+    }
+    
+    .download-btn:active {
+      transform: translateY(0);
+    }
+    
+    .download-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .result-container {
+      display: none;
+      margin-top: 20px;
+      animation: fadeIn 0.5s ease;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .result-title {
+      font-size: 1.2em;
+      margin-bottom: 15px;
+      color: #22c55e;
+    }
+    
+    .video-preview {
+      width: 100%;
+      border-radius: 10px;
+      margin-bottom: 15px;
+      background: #000;
+    }
+    
+    .download-links {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    
+    .download-link {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 15px;
+      background: #0f172a;
+      border-radius: 8px;
+      text-decoration: none;
+      color: #e2e8f0;
+      transition: background 0.3s;
+      border: 1px solid #334155;
+    }
+    
+    .download-link:hover {
+      background: #1e293b;
+      border-color: #22c55e;
+    }
+    
+    .quality-badge {
+      background: #22c55e;
+      color: #0f172a;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.8em;
+      font-weight: bold;
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 20px;
+    }
+    
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid #334155;
+      border-top: 4px solid #22c55e;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 15px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .error-message {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid #ef4444;
+      color: #fecaca;
+      padding: 15px;
+      border-radius: 10px;
+      margin-top: 20px;
+      white-space: pre-line;
+    }
+    
+    .success-message {
+      background: rgba(34, 197, 94, 0.1);
+      border: 1px solid #22c55e;
+      color: #bbf7d0;
+      padding: 15px;
+      border-radius: 10px;
+      margin-top: 20px;
+    }
+    
+    .info-text {
+      font-size: 0.9em;
+      color: #94a3b8;
+      margin-top: 10px;
+      text-align: center;
+    }
+    
+    .footer {
+      text-align: center;
+      margin-top: 30px;
+      color: #64748b;
+      font-size: 0.9em;
+    }
+    
+    @media (max-width: 600px) {
+      .container {
+        padding: 20px;
+      }
+      
+      h1 {
+        font-size: 1.8em;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>📥 Video Downloader</h1>
-
-    <select id="platform">
-      <option value="tiktok">TikTok</option>
-      <option value="facebook">Facebook</option>
-    </select>
-
-    <input type="text" id="url" placeholder="Paste video link here">
-    <button onclick="downloadVideo()">Download</button>
-
-    <div id="result"></div>
+    <div class="header">
+      <h1>📥 Video Downloader</h1>
+      <p class="subtitle">Download TikTok & Facebook videos without watermark</p>
+    </div>
+    
+    <div class="platform-selector">
+      <button class="platform-btn active" onclick="selectPlatform('tiktok')">
+        <span>🎵 TikTok</span>
+      </button>
+      <button class="platform-btn" onclick="selectPlatform('facebook')">
+        <span>📘 Facebook</span>
+      </button>
+    </div>
+    
+    <div class="input-group">
+      <input 
+        type="text" 
+        id="urlInput" 
+        placeholder="Paste video URL here..."
+        autocomplete="off"
+      >
+      <p class="info-text" id="platformHint">
+        Paste a TikTok video URL (e.g., https://tiktok.com/@user/video/123)
+      </p>
+    </div>
+    
+    <button class="download-btn" onclick="downloadVideo()" id="downloadBtn">
+      Download Video
+    </button>
+    
+    <div id="loading" class="loading" style="display: none;">
+      <div class="spinner"></div>
+      <p>Processing video link...</p>
+    </div>
+    
+    <div id="result" class="result-container"></div>
+    
+    <div class="footer">
+      <p>Note: Only download videos you have permission to use.</p>
+    </div>
   </div>
 
   <script>
+    let currentPlatform = 'tiktok';
+    
+    function selectPlatform(platform) {
+      currentPlatform = platform;
+      
+      // Update active button
+      document.querySelectorAll('.platform-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      event.target.classList.add('active');
+      
+      // Update placeholder and hint
+      const input = document.getElementById('urlInput');
+      const hint = document.getElementById('platformHint');
+      
+      if (platform === 'tiktok') {
+        input.placeholder = 'Paste TikTok video URL here...';
+        hint.textContent = 'Paste a TikTok video URL (e.g., https://tiktok.com/@user/video/123)';
+      } else {
+        input.placeholder = 'Paste Facebook video URL here...';
+        hint.textContent = 'Paste a Facebook video URL (e.g., https://facebook.com/watch?v=123)';
+      }
+      
+      // Clear previous results
+      clearResults();
+    }
+    
     async function downloadVideo() {
-      const url = document.getElementById("url").value.trim();
-      const platform = document.getElementById("platform").value;
-      const result = document.getElementById("result");
-
+      const url = document.getElementById('urlInput').value.trim();
+      const resultDiv = document.getElementById('result');
+      const loadingDiv = document.getElementById('loading');
+      const downloadBtn = document.getElementById('downloadBtn');
+      
       if (!url) {
-        result.innerHTML = "❌ Please enter a video URL";
+        showError('Please enter a video URL');
         return;
       }
-
-      result.innerHTML = "⏳ Processing...";
-
+      
+      // Show loading, hide results, disable button
+      loadingDiv.style.display = 'block';
+      resultDiv.style.display = 'none';
+      downloadBtn.disabled = true;
+      downloadBtn.textContent = 'Processing...';
+      
       try {
-        const res = await fetch("/api/download", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url, platform })
+        const response = await fetch('/api/download', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            url: url, 
+            platform: currentPlatform 
+          })
         });
-
-        const data = await res.json();
-
+        
+        const data = await response.json();
+        
         if (!data.success) {
-          result.innerHTML = data.error || "❌ Download failed";
+          showError(data.error || 'Download failed. Please check the URL and try again.');
           return;
         }
-
-        // TikTok - show video + music
-        if (platform === "tiktok") {
-          result.innerHTML = `
-            <p><strong>${data.data.title}</strong></p>
-            <video controls src="${data.data.video}"></video>
-            <a href="${data.data.video}" target="_blank">⬇ Download Video (No Watermark)</a>
-            <a href="${data.data.music}" target="_blank">🎵 Download Music</a>
-          `;
-        } 
-        // Facebook - show video player + all download links
-        else if (platform === "facebook") {
-          let html = "<p><strong>Facebook Video Links</strong></p>";
-          if (data.data && data.data.links && data.data.links.length > 0) {
-            // First video in player
-            html += `<video controls src="${data.data.links[0].url}"></video>`;
-            // All download links
-            data.data.links.forEach(link => {
-              html += `<a href="${link.url}" target="_blank">${link.quality || "Video"}</a>`;
-            });
-          } else {
-            html += "<p>No download links found. Make sure the video is public or try another URL.</p>";
-          }
-          result.innerHTML = html;
-        }
-
-      } catch (err) {
-        console.error(err);
-        result.innerHTML = "❌ Error connecting to server";
+        
+        showResults(data.data);
+        
+      } catch (error) {
+        console.error('Error:', error);
+        showError('Network error. Please check your connection and try again.');
+      } finally {
+        // Reset UI
+        loadingDiv.style.display = 'none';
+        downloadBtn.disabled = false;
+        downloadBtn.textContent = 'Download Video';
       }
     }
+    
+    function showResults(data) {
+      const resultDiv = document.getElementById('result');
+      resultDiv.style.display = 'block';
+      
+      let html = '';
+      
+      if (currentPlatform === 'tiktok') {
+        html = `
+          <div class="result-title">🎵 ${data.title || 'TikTok Video'}</div>
+          ${data.video ? `<video class="video-preview" controls>
+            <source src="${data.video}" type="video/mp4">
+            Your browser does not support the video tag.
+          </video>` : ''}
+          
+          <div class="download-links">
+            <a href="${data.video}" class="download-link" target="_blank" download>
+              <span>⬇ Download Video (No Watermark)</span>
+              <span class="quality-badge">HD</span>
+            </a>
+            
+            ${data.music ? `<a href="${data.music}" class="download-link" target="_blank" download>
+              <span>🎵 Download Audio</span>
+              <span class="quality-badge">MP3</span>
+            </a>` : ''}
+            
+            ${data.cover ? `<a href="${data.cover}" class="download-link" target="_blank" download>
+              <span>🖼️ Download Thumbnail</span>
+              <span class="quality-badge">JPG</span>
+            </a>` : ''}
+          </div>
+        `;
+      } 
+      else if (currentPlatform === 'facebook') {
+        if (!data.links || data.links.length === 0) {
+          showError('No download links found. The video might be private or restricted.');
+          return;
+        }
+        
+        html = `<div class="result-title">📘 Facebook Video</div>`;
+        
+        // Show first video in player
+        const firstVideo = data.links[0];
+        html += `
+          <video class="video-preview" controls>
+            <source src="${firstVideo.url}" type="video/mp4">
+            Your browser does not support the video tag.
+          </video>
+        `;
+        
+        // Show all download links
+        html += '<div class="download-links">';
+        data.links.forEach((link, index) => {
+          html += `
+            <a href="${link.url}" class="download-link" target="_blank" download>
+              <span>⬇ Download ${link.quality || 'Video'} ${index > 0 ? `(${link.quality})` : ''}</span>
+              <span class="quality-badge">${link.quality || 'MP4'}</span>
+            </a>
+          `;
+        });
+        
+        // Show API info if available
+        if (data.info) {
+          html += `<div class="success-message">${data.info}</div>`;
+        }
+        
+        html += '</div>';
+      }
+      
+      resultDiv.innerHTML = html;
+      
+      // Auto-play first video
+      const video = resultDiv.querySelector('video');
+      if (video) {
+        video.play().catch(e => console.log('Auto-play prevented:', e));
+      }
+    }
+    
+    function showError(message) {
+      const resultDiv = document.getElementById('result');
+      resultDiv.style.display = 'block';
+      resultDiv.innerHTML = `
+        <div class="error-message">
+          <strong>⚠️ Error</strong><br>
+          ${message}
+        </div>
+      `;
+    }
+    
+    function clearResults() {
+      const resultDiv = document.getElementById('result');
+      resultDiv.style.display = 'none';
+      resultDiv.innerHTML = '';
+    }
+    
+    // Handle Enter key press
+    document.getElementById('urlInput').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        downloadVideo();
+      }
+    });
+    
+    // Auto-focus input
+    document.getElementById('urlInput').focus();
   </script>
 </body>
 </html>
