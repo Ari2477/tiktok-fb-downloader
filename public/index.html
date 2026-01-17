@@ -296,184 +296,161 @@
     </div>
   </div>
 
-  <script>
-    let currentPlatform = 'tiktok';
-    
-    function selectPlatform(platform) {
-      currentPlatform = platform;
-      
-      // Update active button
-      document.querySelectorAll('.platform-btn').forEach(btn => {
-        btn.classList.remove('active');
-      });
-      event.target.classList.add('active');
-      
-      // Update placeholder and hint
-      const input = document.getElementById('urlInput');
-      const hint = document.getElementById('platformHint');
-      
-      if (platform === 'tiktok') {
-        input.placeholder = 'Paste TikTok video URL here...';
-        hint.textContent = 'Paste a TikTok video URL (e.g., https://tiktok.com/@user/video/123)';
-      } else {
-        input.placeholder = 'Paste Facebook video URL here...';
-        hint.textContent = 'Paste a Facebook video URL (e.g., https://facebook.com/watch?v=123)';
-      }
-      
-      // Clear previous results
-      clearResults();
-    }
-    
-    async function downloadVideo() {
-      const url = document.getElementById('urlInput').value.trim();
-      const resultDiv = document.getElementById('result');
-      const loadingDiv = document.getElementById('loading');
-      const downloadBtn = document.getElementById('downloadBtn');
-      
-      if (!url) {
-        showError('Please enter a video URL');
-        return;
-      }
-      
-      // Show loading, hide results, disable button
-      loadingDiv.style.display = 'block';
-      resultDiv.style.display = 'none';
-      downloadBtn.disabled = true;
-      downloadBtn.textContent = 'Processing...';
-      
-      try {
-        const response = await fetch('/api/download', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            url: url, 
-            platform: currentPlatform 
-          })
-        });
-        
-        const data = await response.json();
-        
-        if (!data.success) {
-          showError(data.error || 'Download failed. Please check the URL and try again.');
-          return;
-        }
-        
-        showResults(data.data);
-        
-      } catch (error) {
-        console.error('Error:', error);
-        showError('Network error. Please check your connection and try again.');
-      } finally {
-        // Reset UI
-        loadingDiv.style.display = 'none';
-        downloadBtn.disabled = false;
-        downloadBtn.textContent = 'Download Video';
-      }
-    }
-    
-    function showResults(data) {
-      const resultDiv = document.getElementById('result');
-      resultDiv.style.display = 'block';
-      
-      let html = '';
-      
-      if (currentPlatform === 'tiktok') {
-        html = `
-          <div class="result-title">🎵 ${data.title || 'TikTok Video'}</div>
-          ${data.video ? `<video class="video-preview" controls>
-            <source src="${data.video}" type="video/mp4">
-            Your browser does not support the video tag.
-          </video>` : ''}
-          
-          <div class="download-links">
-            <a href="${data.video}" class="download-link" target="_blank" download>
-              <span>⬇ Download Video (No Watermark)</span>
-              <span class="quality-badge">HD</span>
-            </a>
-            
-            ${data.music ? `<a href="${data.music}" class="download-link" target="_blank" download>
-              <span>🎵 Download Audio</span>
-              <span class="quality-badge">MP3</span>
-            </a>` : ''}
-            
-            ${data.cover ? `<a href="${data.cover}" class="download-link" target="_blank" download>
-              <span>🖼️ Download Thumbnail</span>
-              <span class="quality-badge">JPG</span>
-            </a>` : ''}
-          </div>
-        `;
-      } 
-      else if (currentPlatform === 'facebook') {
-        if (!data.links || data.links.length === 0) {
-          showError('No download links found. The video might be private or restricted.');
-          return;
-        }
-        
-        html = `<div class="result-title">📘 Facebook Video</div>`;
-        
-        // Show first video in player
-        const firstVideo = data.links[0];
-        html += `
-          <video class="video-preview" controls>
-            <source src="${firstVideo.url}" type="video/mp4">
-            Your browser does not support the video tag.
-          </video>
-        `;
-        
-        // Show all download links
-        html += '<div class="download-links">';
-        data.links.forEach((link, index) => {
-          html += `
-            <a href="${link.url}" class="download-link" target="_blank" download>
-              <span>⬇ Download ${link.quality || 'Video'} ${index > 0 ? `(${link.quality})` : ''}</span>
-              <span class="quality-badge">${link.quality || 'MP4'}</span>
-            </a>
-          `;
-        });
-        
-        // Show API info if available
-        if (data.info) {
-          html += `<div class="success-message">${data.info}</div>`;
-        }
-        
-        html += '</div>';
-      }
-      
-      resultDiv.innerHTML = html;
-      
-      // Auto-play first video
-      const video = resultDiv.querySelector('video');
-      if (video) {
-        video.play().catch(e => console.log('Auto-play prevented:', e));
-      }
-    }
-    
-    function showError(message) {
-      const resultDiv = document.getElementById('result');
-      resultDiv.style.display = 'block';
-      resultDiv.innerHTML = `
-        <div class="error-message">
-          <strong>⚠️ Error</strong><br>
-          ${message}
-        </div>
-      `;
-    }
-    
-    function clearResults() {
-      const resultDiv = document.getElementById('result');
-      resultDiv.style.display = 'none';
-      resultDiv.innerHTML = '';
-    }
-    
-    // Handle Enter key press
-    document.getElementById('urlInput').addEventListener('keypress', function(e) {
-      if (e.key === 'Enter') {
-        downloadVideo();
-      }
+     <script>
+let currentPlatform = 'tiktok';
+
+function selectPlatform(platform) {
+  currentPlatform = platform;
+
+  document.querySelectorAll('.platform-btn').forEach(btn => btn.classList.remove('active'));
+  event.target.classList.add('active');
+
+  const input = document.getElementById('urlInput');
+  const hint = document.getElementById('platformHint');
+
+  if (platform === 'tiktok') {
+    input.placeholder = 'Paste TikTok video URL here...';
+    hint.textContent = 'Paste a TikTok video URL (e.g., https://tiktok.com/@user/video/123)';
+  } else {
+    input.placeholder = 'Paste Facebook video URL here...';
+    hint.textContent = 'Paste a Facebook video URL (e.g., https://facebook.com/watch?v=123)';
+  }
+
+  clearResults();
+}
+
+async function downloadVideo() {
+  const url = document.getElementById('urlInput').value.trim();
+  const resultDiv = document.getElementById('result');
+  const loadingDiv = document.getElementById('loading');
+  const downloadBtn = document.getElementById('downloadBtn');
+
+  if (!url) {
+    showError('Please enter a video URL');
+    return;
+  }
+
+  loadingDiv.style.display = 'block';
+  resultDiv.style.display = 'none';
+  downloadBtn.disabled = true;
+  downloadBtn.textContent = 'Processing...';
+
+  try {
+    const res = await fetch('/api/download', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, platform: currentPlatform })
     });
-    
-    // Auto-focus input
-    document.getElementById('urlInput').focus();
-  </script>
+
+    const data = await res.json();
+
+    if (!data.success) {
+      throw new Error(data.error || 'Download failed. Please check the URL and try again.');
+    }
+
+    showResults(data.data);
+
+  } catch (error) {
+    console.error(error);
+    showError(error.message || 'Network error. Please check your connection and try again.');
+  } finally {
+    loadingDiv.style.display = 'none';
+    downloadBtn.disabled = false;
+    downloadBtn.textContent = 'Download Video';
+  }
+}
+
+function showResults(data) {
+  const resultDiv = document.getElementById('result');
+  resultDiv.style.display = 'block';
+
+  let html = '';
+
+  if (currentPlatform === 'tiktok') {
+    html = `
+      <div class="result-title">🎵 ${data.title || 'TikTok Video'}</div>
+      ${data.video ? `<video class="video-preview" controls>
+        <source src="${data.video}" type="video/mp4">
+        Your browser does not support the video tag.
+      </video>` : ''}
+
+      <div class="download-links">
+        <a href="${data.video}" class="download-link" target="_blank" download>
+          <span>⬇ Download Video (No Watermark)</span>
+          <span class="quality-badge">HD</span>
+        </a>
+
+        ${data.music ? `<a href="${data.music}" class="download-link" target="_blank" download>
+          <span>🎵 Download Audio</span>
+          <span class="quality-badge">MP3</span>
+        </a>` : ''}
+
+        ${data.cover ? `<a href="${data.cover}" class="download-link" target="_blank" download>
+          <span>🖼️ Download Thumbnail</span>
+          <span class="quality-badge">JPG</span>
+        </a>` : ''}
+      </div>
+    `;
+  } 
+  else if (currentPlatform === 'facebook') {
+    if (!data.links || data.links.length === 0) {
+      showError('No download links found. Video may be private or restricted.');
+      return;
+    }
+
+    html = `<div class="result-title">📘 Facebook Video</div>`;
+
+    // First video in player
+    const firstVideo = data.links[0];
+    html += `
+      <video class="video-preview" controls>
+        <source src="${firstVideo.url}" type="video/mp4">
+        Your browser does not support the video tag.
+      </video>
+    `;
+
+    // All download links
+    html += '<div class="download-links">';
+    data.links.forEach((link, index) => {
+      html += `
+        <a href="${link.url}" class="download-link" target="_blank" download>
+          <span>⬇ Download ${link.quality || 'Video'} ${index > 0 ? `(${link.quality})` : ''}</span>
+          <span class="quality-badge">${link.quality || 'MP4'}</span>
+        </a>
+      `;
+    });
+    html += '</div>';
+  }
+
+  resultDiv.innerHTML = html;
+
+  const video = resultDiv.querySelector('video');
+  if (video) video.play().catch(e => console.log('Auto-play prevented:', e));
+}
+
+function showError(message) {
+  const resultDiv = document.getElementById('result');
+  resultDiv.style.display = 'block';
+  resultDiv.innerHTML = `
+    <div class="error-message">
+      <strong>⚠️ Error</strong><br>
+      ${message}
+    </div>
+  `;
+}
+
+function clearResults() {
+  const resultDiv = document.getElementById('result');
+  resultDiv.style.display = 'none';
+  resultDiv.innerHTML = '';
+}
+
+document.getElementById('urlInput').addEventListener('keypress', function(e) {
+  if (e.key === 'Enter') downloadVideo();
+});
+
+document.getElementById('urlInput').focus();
+</script>       
+          
 </body>
 </html>
