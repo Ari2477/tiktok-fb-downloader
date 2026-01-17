@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video Downloader</title>
+  <style>
+    /* ===== CSS START ===== */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 10px;
+    }
+    .container {
+      background: #1e293b;
+      padding: 25px;
+      width: 100%;
+      max-width: 400px;
+      border-radius: 12px;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    h1 {
+      margin-bottom: 20px;
+      font-size: 1.8em;
+      color: #22c55e;
+    }
+    select, input, button {
+      width: 100%;
+      margin-top: 10px;
+      padding: 12px;
+      border-radius: 8px;
+      border: none;
+      font-size: 1em;
+    }
+    select, input {
+      background: #0f172a;
+      color: white;
+      border: 1px solid #334155;
+    }
+    button {
+      background: #22c55e;
+      font-weight: bold;
+      color: black;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    button:hover {
+      opacity: 0.9;
+    }
+    #result {
+      margin-top: 20px;
+      word-break: break-word;
+      text-align: left;
+    }
+    a {
+      display: block;
+      margin-top: 10px;
+      color: #38bdf8;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    a:hover { text-decoration: underline; }
+    pre {
+      background: #334155;
+      padding: 10px;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-size: 0.9em;
+    }
+    /* ===== CSS END ===== */
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📥 Video Downloader</h1>
+
+    <select id="platform">
+      <option value="tiktok">TikTok</option>
+      <option value="facebook">Facebook</option>
+    </select>
+
+    <input type="text" id="url" placeholder="Paste video link here">
+    <button onclick="downloadVideo()">Download</button>
+
+    <div id="result"></div>
+  </div>
+
+  <script>
+    // ===== JS START =====
+    async function downloadVideo() {
+      const url = document.getElementById("url").value.trim();
+      const platform = document.getElementById("platform").value;
+      const result = document.getElementById("result");
+
+      if (!url) {
+        result.innerHTML = "❌ Please enter a video URL";
+        return;
+      }
+
+      result.innerHTML = "⏳ Processing...";
+
+      try {
+        const res = await fetch("/api/download", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url, platform })
+        });
+
+        const data = await res.json();
+
+        if (!data.success) {
+          result.innerHTML = "❌ Download failed or invalid URL";
+          return;
+        }
+
+        // TikTok
+        if (platform === "tiktok") {
+          result.innerHTML = `
+            <p><strong>${data.data.title}</strong></p>
+            <a href="${data.data.video}" target="_blank">⬇ Download Video (No Watermark)</a>
+            <a href="${data.data.music}" target="_blank">🎵 Download Music</a>
+          `;
+        } 
+        // Facebook
+        else if (platform === "facebook") {
+          let html = "<p><strong>Facebook Video Links</strong></p>";
+          if (data.data && data.data.links && data.data.links.length > 0) {
+            data.data.links.forEach(link => {
+              html += `<a href="${link.url}" target="_blank">${link.quality || "Video"}</a>`;
+            });
+          } else {
+            html += "<p>No download links found.</p>";
+          }
+          result.innerHTML = html;
+        }
+
+      } catch (err) {
+        console.error(err);
+        result.innerHTML = "❌ Error connecting to server";
+      }
+    }
+    // ===== JS END =====
+  </script>
+</body>
+</html>
