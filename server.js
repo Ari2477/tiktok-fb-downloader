@@ -33,14 +33,19 @@ async function facebookDownload(url) {
     const apiUrl = `https://ioark-apiv1.onrender.com/downloader/facebookv2?url=${encodeURIComponent(url)}`;
     const res = await axios.get(apiUrl);
 
+    console.log("FB API response:", res.data); // check kung ano ang ibinabalik
+
+    // Check if result array exists
     if (res.data && res.data.result && res.data.result.length > 0) {
-      // Convert to standard format for frontend
-      const links = res.data.result.map(item => ({
-        url: item.link,
-        quality: item.quality || "Video"
-      }));
+      const links = res.data.result
+        .filter(item => item.link) // ignore invalid entries
+        .map(item => ({
+          url: item.link,
+          quality: item.quality || "Video"
+        }));
       return { links };
     } else {
+      // fallback: empty array, handled sa frontend
       return { links: [] };
     }
   } catch (err) {
@@ -58,20 +63,25 @@ app.post("/api/download", async (req, res) => {
     }
 
     let data = null;
+
     if (platform === "tiktok") {
       data = await tiktokDownload(url);
       if (!data) return res.json({ success: false, error: "TikTok download failed" });
     } else if (platform === "facebook") {
       data = await facebookDownload(url);
       if (!data.links || data.links.length === 0) {
-        return res.json({ success: false, data, error: "No download links found (public videos only)" });
+        return res.json({
+          success: false,
+          data,
+          error:
+            "No download links found. Make sure the video is public or try another video URL."
+        });
       }
     } else {
       return res.json({ success: false, error: "Invalid platform" });
     }
 
     res.json({ success: true, data });
-
   } catch (e) {
     console.error("API error:", e.message);
     res.json({ success: false, error: "Download failed" });
