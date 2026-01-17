@@ -10,7 +10,7 @@ app.use(express.static("public"));
 
 const PORT = 3000;
 
-// TikTok Downloader
+// ===== TikTok Downloader (No Watermark) =====
 async function tiktokDownload(url) {
   const api = `https://www.tikwm.com/api/?url=${encodeURIComponent(url)}`;
   const res = await axios.get(api);
@@ -21,18 +21,29 @@ async function tiktokDownload(url) {
   };
 }
 
-// Facebook Downloader
+// ===== Facebook Downloader (Public Videos Only) =====
 async function facebookDownload(url) {
-  const api = "https://fdownloader.net/api/ajaxSearch";
-  const res = await axios.post(
-    api,
-    new URLSearchParams({ q: url, vt: "home" }),
-    { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
-  );
-  return res.data;
+  try {
+    // Scraping fdownloader public endpoint (works for public videos)
+    const res = await axios.post(
+      "https://fdownloader.net/api/ajaxSearch",
+      new URLSearchParams({ q: url, vt: "home" }),
+      { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
+    );
+
+    // Return links array if available
+    if (res.data && res.data.links && res.data.links.length > 0) {
+      return { links: res.data.links };
+    } else {
+      return { links: [] };
+    }
+  } catch (err) {
+    console.error("FB download error:", err.message);
+    return { links: [] };
+  }
 }
 
-// API Endpoint
+// ===== API Endpoint =====
 app.post("/api/download", async (req, res) => {
   try {
     const { url, platform } = req.body;
@@ -49,12 +60,17 @@ app.post("/api/download", async (req, res) => {
       return res.json({ success: false, error: "Invalid platform" });
     }
 
+    if ((platform === "facebook") && (!data.links || data.links.length === 0)) {
+      return res.json({ success: false, data, error: "No download links found (public videos only)" });
+    }
+
     res.json({ success: true, data });
   } catch (e) {
+    console.error("API error:", e.message);
     res.json({ success: false, error: "Download failed" });
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`Running on http://localhost:${PORT}`);
+  console.log(`Server running at http://localhost:${PORT}`);
 });
